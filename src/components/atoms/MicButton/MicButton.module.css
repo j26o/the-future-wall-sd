@@ -1,0 +1,103 @@
+.mic {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-structure-light);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--timing-base), border-color var(--timing-base),
+    box-shadow var(--timing-base);
+  animation: pulse 2.5s ease-in-out infinite;
+  touch-action: none;
+}
+
+.mic:hover {
+  transform: scale(1.05);
+  border-color: var(--color-gold);
+}
+
+.mic:active,
+.mic.recording {
+  transform: scale(0.95);
+}
+
+.mic:disabled {
+  cursor: default;
+  animation: none;
+}
+
+/* Idle: slow pulse glow */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(74, 173, 173, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 16px rgba(74, 173, 173, 0);
+  }
+}
+
+/* Recording: red glow ring */
+.recording {
+  animation: recordGlow 1s ease-in-out infinite;
+  border-color: #e05050;
+}
+
+@keyframes recordGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(224, 80, 80, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 20px rgba(224, 80, 80, 0);
+  }
+}
+
+/* Processing: spinner overlay */
+.processing {
+  animation: none;
+  border-color: var(--color-gold);
+  opacity: 0.7;
+}
+
+.processing .icon {
+  opacity: 0.3;
+}
+
+/* Done: green flash */
+.done {
+  animation: none;
+  border-color: var(--color-success);
+  box-shadow: 0 0 24px rgba(80, 192, 128, 0.3);
+}
+
+/* Error: red border */
+.error {
+  animation: none;
+  border-color: var(--color-error);
+}
+
+.icon {
+  width: 36px;
+  height: 36px;
+  transition: opacity var(--timing-base);
+}
+
+/* Spinner ring */
+.spinner {
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--radius-full);
+  border: 3px solid transparent;
+  border-top-color: var(--color-gold);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

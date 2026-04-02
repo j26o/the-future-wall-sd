@@ -1,0 +1,57 @@
+/*
+ * Design tokens — palette sampled from base-img.png
+ * (Singapore waterfront panoramic watercolour at night)
+ */
+:root {
+  /* Background / sky */
+  --color-bg: #0b0e1a;
+  --color-bg-deep: #050810;
+
+  /* Water */
+  --color-water: #0d2a4a;
+  --color-water-glow: #1a5f8a;
+
+  /* Structures / supertrees */
+  --color-structure: #2a6b6e;
+  --color-structure-light: #4aadad;
+
+  /* Warm accents */
+  --color-gold: #d4a54a;
+  --color-gold-dim: #8a6e30;
+  --color-warm: #c47830;
+
+  /* Aurora / atmospheric */
+  --color-aurora: #7b5ea7;
+  --color-aurora-soft: #5a4080;
+
+  /* UI */
+  --color-text: #e8e4dc;
+  --color-text-dim: #8a8680;
+  --color-surface: rgba(15, 18, 30, 0.85);
+  --color-error: #e05050;
+  --color-success: #50c080;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Timing */
+  --timing-fast: 150ms;
+  --timing-base: 300ms;
+  --timing-slow: 600ms;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+
+  /* Aspect ratio */
+  --aspect-wall: 2.33;
+}

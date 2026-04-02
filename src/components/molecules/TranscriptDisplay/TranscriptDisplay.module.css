@@ -1,0 +1,27 @@
+.wrap {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--color-text);
+  max-height: 140px;
+  overflow-y: auto;
+  text-align: center;
+  padding: 0 var(--space-4);
+  transition: opacity var(--timing-base);
+}
+
+.final {
+  color: var(--color-text);
+}
+
+.interim {
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
+.live .interim {
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0.5; }
+}

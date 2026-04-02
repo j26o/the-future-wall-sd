@@ -1,0 +1,11 @@
+.status {
+  font-size: 0.85rem;
+  color: var(--color-text-dim);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color var(--timing-base);
+}
+
+.error {
+  color: var(--color-error);
+}

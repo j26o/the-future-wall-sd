@@ -1,0 +1,1 @@
+export { VoiceCapture } from './VoiceCapture';

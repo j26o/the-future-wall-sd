@@ -7,12 +7,21 @@ export const IMAGE_WIDTH = 1680;
 export const IMAGE_HEIGHT = 720;
 
 export const API_BASE = import.meta.env.VITE_API_BASE || '';
+export const INFERENCE_URL = import.meta.env.VITE_INFERENCE_URL || '/inference';
 
-/* Morph timing (seconds) */
+/* Diffusion transition config */
+export const DIFFUSION_TRANSITION = {
+  NUM_FRAMES: 8,
+  STRENGTH_START: 0.1,
+  STRENGTH_END: 0.85,
+  FRAME_INTERVAL_MS: 500,   // time between diffusion frames
+  CROSSFADE_MS: 200,         // crossfade between consecutive frames
+};
+
+/* Morph timing (seconds) — hold = time before switching target */
 export const MORPH = {
-  IDLE_DURATION: 12,
-  VISITOR_DURATION: 8,
-  PAUSE_BETWEEN: 2,
+  IDLE_HOLD: 10,
+  VISITOR_HOLD: 6,
 };
 
 /* Idle timeout before returning to dream cycling (ms) */
@@ -37,34 +46,42 @@ export const DREAM_IMAGES = [
 
 export const BASE_IMAGE = '/assets/textures/base-img.png';
 
-/* Leva default values — StreamDiffusion effect */
+/* Leva default values — Ink-wash cinematic pipeline + diffusion transitions */
 export const LEVA_DEFAULTS = {
   morph: {
-    idleDuration: MORPH.IDLE_DURATION,
-    visitorDuration: MORPH.VISITOR_DURATION,
-    pauseBetween: MORPH.PAUSE_BETWEEN,
+    idleHold: MORPH.IDLE_HOLD,
+    visitorHold: MORPH.VISITOR_HOLD,
   },
-  noise: {
-    scale: 1.0,
-    intensity: 0.6,
-    speed: 0.5,
-    grainSize: 1.5,
-    colorBleed: 0.3,
+  transition: {
+    numFrames: DIFFUSION_TRANSITION.NUM_FRAMES,
+    strengthStart: DIFFUSION_TRANSITION.STRENGTH_START,
+    strengthEnd: DIFFUSION_TRANSITION.STRENGTH_END,
+    frameInterval: DIFFUSION_TRANSITION.FRAME_INTERVAL_MS,
+    crossfadeMs: DIFFUSION_TRANSITION.CROSSFADE_MS,
   },
-  displacement: {
-    strength: 15,
-    frequency: 0.8,
+  inkWash: {
+    desaturation: 0.90,         // 0=full color, 1=pure grayscale
+    inkContrast: 0.6,           // ink-wash contrast boost
+    shadowTint: [0.12, 0.08, 0.06],   // warm sepia shadow tint
+    highlightTint: [0.06, 0.08, 0.12], // cool blue highlight tint
   },
-  blend: {
-    perPixelStagger: 2.5,
-    midTransitionNoise: 0.4,
-    edgeSoftness: 0.5,
+  fog: {
+    fogDensity: 0.18,           // atmospheric fog amount (subtle haze)
+    fogBrightness: 0.65,        // fog base brightness (muted, not white)
+    fogHeight: 0.5,             // vertical fog gradient
+  },
+  volumetric: {
+    strength: 0.10,             // volumetric light intensity (subtle)
+    width: 0.4,                 // width of central light column
+    y: 0.3,                     // vertical position of light source (0=bottom, 1=top)
+  },
+  blur: {
+    blurRadius: 1.5,            // gaussian blur radius
   },
   post: {
-    bloomStrength: 0.7,
-    bloomRadius: 0.4,
-    vignette: 0.3,
-    colorTemperature: 0.0,
+    halation: 0.06,             // bloom on bright fog only (subtle)
+    grainIntensity: 0.06,       // film grain
+    vignette: 0.35,             // soft vignette (slightly stronger to frame image)
   },
 };
 

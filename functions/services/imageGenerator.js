@@ -1,6 +1,8 @@
 import { InferenceClient } from '@huggingface/inference';
 import { HF_TOKEN, HF_IMAGE_MODEL, IMAGE_WIDTH, IMAGE_HEIGHT } from '../config.js';
 
+const PROVIDER = process.env.HF_IMAGE_PROVIDER || 'hf-inference';
+
 /**
  * Generate an image from a prompt using the HF Inference API.
  *
@@ -26,6 +28,7 @@ export async function generateImage(prompt, baseImageBuffer = null) {
           width: IMAGE_WIDTH,
           height: IMAGE_HEIGHT,
         },
+        provider: PROVIDER,
       });
       return Buffer.from(await blob.arrayBuffer());
     } catch (err) {
@@ -41,6 +44,7 @@ export async function generateImage(prompt, baseImageBuffer = null) {
       width: IMAGE_WIDTH,
       height: IMAGE_HEIGHT,
     },
+    provider: PROVIDER,
   });
 
   return Buffer.from(await blob.arrayBuffer());

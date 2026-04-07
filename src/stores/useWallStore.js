@@ -31,8 +31,13 @@ export const useWallStore = create((set, get) => ({
   dreamImages: DREAM_IMAGES,
   currentIndex: 0,
   nextIndex: 1,
-  morphProgress: 0,
   isIdle: true,
+
+  // Diffusion transition state
+  transitionFrames: [],     // Array of frame URLs from interpolation
+  transitionIndex: -1,      // Current frame being played (-1 = not transitioning)
+  isTransitioning: false,   // Whether a transition is in progress
+  inferenceReady: false,    // Whether local inference server is available
 
   pushVision: (vision) =>
     set((state) => ({
@@ -49,17 +54,45 @@ export const useWallStore = create((set, get) => ({
       return {
         currentIndex: state.nextIndex,
         nextIndex: next,
-        morphProgress: 0,
       };
     }),
 
-  setMorphProgress: (morphProgress) => set({ morphProgress }),
+  setInferenceReady: (inferenceReady) => set({ inferenceReady }),
+
+  setTransitionFrames: (frames) =>
+    set({
+      transitionFrames: frames,
+      transitionIndex: 0,
+      isTransitioning: true,
+    }),
+
+  advanceTransitionFrame: () =>
+    set((state) => {
+      const nextIdx = state.transitionIndex + 1;
+      if (nextIdx >= state.transitionFrames.length) {
+        return {
+          transitionFrames: [],
+          transitionIndex: -1,
+          isTransitioning: false,
+        };
+      }
+      return { transitionIndex: nextIdx };
+    }),
+
+  completeTransition: () =>
+    set({
+      transitionFrames: [],
+      transitionIndex: -1,
+      isTransitioning: false,
+    }),
 
   resetToIdle: () =>
     set({
       isIdle: true,
       currentIndex: 0,
       nextIndex: 1,
-      morphProgress: 0,
+      transitionFrames: [],
+      transitionIndex: -1,
+      isTransitioning: false,
     }),
 }));

@@ -25,11 +25,8 @@ export async function enrichPrompt(transcript) {
       ],
       max_tokens: 300,
       temperature: 0.7,
+      provider: HF_LLM_PROVIDER || 'auto',
     };
-
-    if (HF_LLM_PROVIDER) {
-      opts.provider = HF_LLM_PROVIDER;
-    }
 
     const response = await client.chatCompletion(opts);
     const prompt = response.choices?.[0]?.message?.content?.trim();

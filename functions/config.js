@@ -5,7 +5,7 @@
 
 export const HF_TOKEN = process.env.HF_TOKEN || '';
 export const HF_IMAGE_MODEL = process.env.HF_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
-export const HF_LLM_MODEL = process.env.HF_LLM_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3';
+export const HF_LLM_MODEL = process.env.HF_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
 export const HF_LLM_PROVIDER = process.env.HF_LLM_PROVIDER || undefined;
 
 export const IMAGE_WIDTH = parseInt(process.env.IMAGE_WIDTH, 10) || 1680;

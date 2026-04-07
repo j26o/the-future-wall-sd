@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:uat": "playwright test e2e/uat-streamdiffusion.spec.js"
   },
   "dependencies": {
     "firebase": "^12.11.0",
@@ -28,6 +29,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "pngjs": "^7.0.0",
     "vite": "^8.0.1"
   }
 }

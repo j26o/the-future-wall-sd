@@ -6,23 +6,39 @@
 
 ## Project-Specific Agents
 
-### Shader Tuning Agent
+### Ink-Wash Shader Agent
 
-**When:** Adjusting leva defaults or adding new shader effects.
+**When:** Adjusting the ink-wash composite post-processing (desaturation, fog, volumetric light, halation, grain, vignette).
 **Type:** Claude Code (general-purpose)
 **Prompt pattern:**
 ```
-Read the morph shader at src/components/organisms/MorphCanvas/morphShader.js
-and the leva controls at useLevaControls.js. The current leva defaults are
-in src/config/index.js under LEVA_DEFAULTS.
+Read the composite shader at src/components/organisms/MorphCanvas/morphShader.js
+and the leva controls at useLevaControls.js. Defaults are in
+src/config/index.js under LEVA_DEFAULTS.
 
 Task: [describe the visual change needed]
 
 Constraints:
-- Keep the shader single-pass (no framebuffers) per DECISIONS.md D007
-- Use hash-based noise only (no texture samplers) per D006
+- Shader is post-processing only — diffusion frames come from inference server
 - All new parameters must be added as uniforms + leva controls
 - Test that pnpm build succeeds after changes
+```
+
+### Inference Server Agent
+
+**When:** Modifying the local diffusion inference server (model, endpoints, performance).
+**Type:** Claude Code (general-purpose)
+**Prompt pattern:**
+```
+Read inference-server/server.py and src/services/inferenceService.js.
+The server runs sd-turbo via diffusers on MPS/CUDA (see DECISIONS.md D015).
+
+Task: [describe the change needed]
+
+Constraints:
+- Keep API compatible with inferenceService.js client
+- Test endpoints via curl or the /health check
+- MPS and CUDA paths must both work
 ```
 
 ### Vision Pipeline Debug Agent
@@ -63,7 +79,8 @@ Conventions:
 
 | Task | Agent / Tool | Notes |
 |------|-------------|-------|
-| Modify shader effect | Claude Code | Read morphShader.js + MorphCanvas.jsx first |
+| Modify ink-wash shader | Claude Code | Read morphShader.js + MorphCanvas.jsx first |
+| Inference server changes | Claude Code | Read server.py + inferenceService.js |
 | Add new page/component | Claude Code | Follow Atomic Design, add barrel export |
 | Debug voice pipeline | Claude Code (Explore) | Trace across client + Cloud Functions |
 | Review image quality | Gemini | See GEMINI.md shader tuning workflow |

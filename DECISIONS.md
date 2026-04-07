@@ -84,6 +84,46 @@ Architectural and technical decisions for this project. Referenced by CLAUDE.md,
 **Decision:** Add a `/visions` route that fetches from GET /api/visions and displays each vision as a card with raw transcript, enriched prompt, generated image, and timestamp.
 **Consequences:** Useful for debugging the prompt enrichment pipeline and reviewing image quality. Not intended for visitors — no link from the input or wall pages.
 
+## D012: 4-FBO feedback loop replaces single-pass transition shader
+
+**Date:** 2026-04-06
+**Status:** Superseded by D013
+**Context:** The original shader (D001) approximated StreamDiffusion with a 3-phase crossfade between two images. After manual testing, this only produced a transition effect — not the continuous organic morphing that StreamDiffusion creates through iterative frame-to-frame diffusion.
+**Decision:** Replace with a 4-FBO multi-pass feedback pipeline with displacement-based warping.
+**Consequences:** Produced flowing watercolour effect instead of StreamDiffusion's in-place regeneration. Superseded by D013.
+
+## D013: Stochastic regeneration shader (replaces displacement warp)
+
+**Date:** 2026-04-06
+**Status:** Accepted (supersedes D001, D007, D012)
+**Context:** The displacement-warp feedback loop (D012) created a flowing watercolour effect — pixels warped along noise-driven UV offsets. Real StreamDiffusion (ref: github.com/cumulo-autumn/streamdiffusion, youtube.com/watch?v=h_-DZxn2P5U) re-generates the image in place each frame via diffusion denoising. The visual result is per-pixel shimmer/flicker with stable composition, not directional flow.
+**Decision:** Replace displacement warp with stochastic per-pixel regeneration:
+- **No UV displacement** — pixels read from the same position each frame (no flow)
+- **Regeneration mask**: Each frame, a random subset of pixels (~15%) are pulled hard toward the target image (regenPull ~0.6), simulating diffusion re-generation. Other pixels retain previous value with gentle drift (pullStrength ~0.01).
+- **Stochastic jitter**: Regenerated pixels sample the target with slight random offset (~1px), creating shimmer.
+- **Shimmer overlay**: All pixels get subtle per-frame brightness perturbation (diffusion noise aesthetic).
+- **Mild blur**: Separable gaussian (radius ~2, mix ~8%) — StreamDiffusion output is relatively crisp.
+- 4-FBO pipeline retained (accumA/B ping-pong, blurH, blurV, composite to screen).
+**Consequences:** Effect now matches StreamDiffusion's in-place regeneration aesthetic. Verified by automated UAT suite (8 criteria: no flow, per-pixel independence, temporal coherence, continuous regeneration, composition stability, crispness, smooth convergence, distributed shimmer).
+
+## D014: UAT agent for StreamDiffusion visual acceptance
+
+**Date:** 2026-04-06
+**Status:** Accepted
+**Context:** Visual effects are hard to test — manual inspection doesn't scale and is subjective. Need automated verification that the shader output matches StreamDiffusion reference characteristics (not watercolour flow).
+**Decision:** Playwright-based UAT test suite (`e2e/uat-streamdiffusion.spec.js`) that captures frames via canvas screenshot, computes statistical properties, and produces a structured JSON report with 8 acceptance criteria:
+1. No directional flow (flow magnitude < 2.0)
+2. Per-pixel independence (neighbour correlation < 0.75)
+3. Temporal coherence (MAD 0.2–20 between frames)
+4. Continuous regeneration (no frozen frame pairs)
+5. Composition stability (centroid drift < 4px)
+6. Crispness (spatial coherence 2–40)
+7. Smooth convergence (max single-frame MAD < 50)
+8. Distributed shimmer (change ratio > 10%)
+
+Run via `pnpm test:uat`. Always included in `pnpm test:e2e` pipeline.
+**Consequences:** Shader changes that regress toward watercolour flow or break StreamDiffusion aesthetics are caught automatically. Report provides specific metrics for debugging.
+
 ## D011: Playwright for e2e testing (not Vitest)
 
 **Date:** 2026-04-02
@@ -91,3 +131,11 @@ Architectural and technical decisions for this project. Referenced by CLAUDE.md,
 **Context:** The app is primarily a visual/interactive prototype. Unit tests would mostly test React rendering, which is less valuable than verifying the actual pages load, routes work, and kiosk mode activates.
 **Decision:** Use Playwright CLI tests against the Vite preview server. Tests cover routing, page rendering, WebGL canvas, kiosk mode, design tokens, and the visions page (with API mocking).
 **Consequences:** 31 e2e tests provide confidence that the app works end-to-end. No Vitest/RTL setup needed for the prototype phase.
+
+## D015: Local diffusion inference replaces shader feedback loop
+
+**Date:** 2026-04-06
+**Status:** Accepted (supersedes D001, D013)
+**Context:** The WebGL shader feedback loop (4-FBO stochastic per-pixel regeneration) could not convincingly replicate actual diffusion-based morphing. Shader effects look like shader effects, not real img2img transitions. The user wants authentic diffusion transitions between vision images.
+**Decision:** Replace the shader feedback loop with a local Python inference server (FastAPI + diffusers + sd-turbo) that generates real interpolation frames via chained img2img with progressive denoising strength. The MorphCanvas component is simplified to a frame display with the ink-wash composite shader as post-processing. The inference server runs on localhost:8000, proxied through Vite at /inference. Falls back to direct image swap when the server is unavailable.
+**Consequences:** Transitions are actual diffusion steps, visually authentic. Requires Python + torch + ~3.3GB model download. Transition latency ~8-16s for 8 frames on Apple Silicon MPS. The ink-wash composite shader (desaturation, fog, volumetric light, halation, grain, vignette) still provides consistent visual styling across all frames.

@@ -13,8 +13,8 @@ export function WallPage() {
   // Leva controls for shader tuning
   const controls = useLevaControls();
 
-  // Vision cycling drives morph progress
-  const { currentSrc, nextSrc, progress } = useVisionCycle(controls.morph);
+  // Vision cycling with diffusion transitions
+  const { frameSrc } = useVisionCycle(controls.morph, controls.transition);
 
   // Ctrl+Shift+L toggle for leva panel
   useEffect(() => {
@@ -22,7 +22,6 @@ export function WallPage() {
     const onKey = (e) => {
       if (e.ctrlKey && e.shiftKey && e.code === 'KeyL') {
         visible = !visible;
-        // Leva doesn't expose a toggle API, so we toggle the root container
         const root = document.querySelector('[class*="leva-"]');
         if (root) {
           root.style.display = visible ? '' : 'none';
@@ -38,9 +37,7 @@ export function WallPage() {
       <Leva hidden={!SHOW_CONTROLS} collapsed />
 
       <MorphCanvas
-        currentSrc={currentSrc}
-        nextSrc={nextSrc}
-        progress={progress}
+        frameSrc={frameSrc}
         controls={controls}
       />
     </div>

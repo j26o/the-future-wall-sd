@@ -1,97 +1,155 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useWallStore } from '@/stores/useWallStore';
-import { BASE_IMAGE, MORPH, IDLE_TIMEOUT_MS } from '@/config';
+import { BASE_IMAGE, MORPH, IDLE_TIMEOUT_MS, DIFFUSION_TRANSITION } from '@/config';
 import { preloadImage } from '@/utils/imageLoader';
+import { interpolate, checkHealth } from '@/services/inferenceService';
 
 /**
- * Drives the MorphCanvas: manages which two images are active,
- * animates morph progress 0→1, pauses, then advances to next pair.
+ * Vision cycling with diffusion-based transitions.
  *
- * Returns: { currentSrc, nextSrc, progress }
+ * When the target advances (timer or new vision), requests interpolation
+ * frames from the local inference server and plays them sequentially.
+ * Falls back to direct image swap if the server is unavailable.
+ *
+ * Returns: { frameSrc, isTransitioning }
  */
-export function useVisionCycle(morphControls = {}) {
+export function useVisionCycle(morphControls = {}, transitionControls = {}) {
   const isIdle = useWallStore((s) => s.isIdle);
   const dreamImages = useWallStore((s) => s.dreamImages);
   const visionQueue = useWallStore((s) => s.visionQueue);
   const resetToIdle = useWallStore((s) => s.resetToIdle);
+  const inferenceReady = useWallStore((s) => s.inferenceReady);
+  const setInferenceReady = useWallStore((s) => s.setInferenceReady);
+  const transitionFrames = useWallStore((s) => s.transitionFrames);
+  const transitionIndex = useWallStore((s) => s.transitionIndex);
+  const isTransitioning = useWallStore((s) => s.isTransitioning);
+  const setTransitionFrames = useWallStore((s) => s.setTransitionFrames);
+  const advanceTransitionFrame = useWallStore((s) => s.advanceTransitionFrame);
+  const completeTransition = useWallStore((s) => s.completeTransition);
 
-  const idleDuration = morphControls.idleDuration ?? MORPH.IDLE_DURATION;
-  const visitorDuration = morphControls.visitorDuration ?? MORPH.VISITOR_DURATION;
-  const pauseBetween = morphControls.pauseBetween ?? MORPH.PAUSE_BETWEEN;
+  const idleHold = morphControls.idleHold ?? MORPH.IDLE_HOLD;
+  const visitorHold = morphControls.visitorHold ?? MORPH.VISITOR_HOLD;
+  const numFrames = transitionControls.numFrames ?? DIFFUSION_TRANSITION.NUM_FRAMES;
+  const strengthStart = transitionControls.strengthStart ?? DIFFUSION_TRANSITION.STRENGTH_START;
+  const strengthEnd = transitionControls.strengthEnd ?? DIFFUSION_TRANSITION.STRENGTH_END;
+  const frameInterval = transitionControls.frameInterval ?? DIFFUSION_TRANSITION.FRAME_INTERVAL_MS;
 
   const images = isIdle ? dreamImages : visionQueue.map((v) => v.imageUrl);
 
   const [index, setIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState('morph'); // 'morph' | 'pause'
-
-  const rafRef = useRef(null);
-  const startRef = useRef(null);
+  const [frameSrc, setFrameSrc] = useState(BASE_IMAGE);
+  const timerRef = useRef(null);
   const idleTimerRef = useRef(null);
+  const frameTimerRef = useRef(null);
+  const interpolatingRef = useRef(false);
 
-  const currentSrc = images.length > 0 ? images[index % images.length] : BASE_IMAGE;
-  const nextIdx = images.length > 1 ? (index + 1) % images.length : 0;
-  const nextSrc = images.length > 1 ? images[nextIdx] : currentSrc;
+  const currentTarget = images.length > 0 ? images[index % images.length] : BASE_IMAGE;
 
-  // Preload upcoming image
+  // Check inference server on mount
   useEffect(() => {
-    if (nextSrc && nextSrc !== currentSrc) {
-      preloadImage(nextSrc).catch(() => {});
-    }
-  }, [nextSrc, currentSrc]);
+    checkHealth().then((res) => setInferenceReady(res.ok));
+    const interval = setInterval(() => {
+      checkHealth().then((res) => setInferenceReady(res.ok));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [setInferenceReady]);
 
-  // Advance to next image pair
-  const advance = useCallback(() => {
-    setIndex((prev) => {
-      const total = images.length;
-      if (total < 2) return prev;
-      return (prev + 1) % total;
-    });
-    setProgress(0);
-    setPhase('morph');
-    startRef.current = null;
-  }, [images.length]);
-
-  // Animation loop
+  // Set initial frame
   useEffect(() => {
-    if (images.length < 2) {
-      setProgress(0);
-      return;
+    if (!isTransitioning) {
+      setFrameSrc(currentTarget);
     }
+  }, [currentTarget, isTransitioning]);
 
-    const duration = (isIdle ? idleDuration : visitorDuration) * 1000;
-    const pauseMs = pauseBetween * 1000;
+  // Preload next image
+  useEffect(() => {
+    if (images.length < 2) return;
+    const nextIdx = (index + 1) % images.length;
+    preloadImage(images[nextIdx]).catch(() => {});
+  }, [index, images]);
 
-    const tick = (now) => {
-      if (!startRef.current) startRef.current = now;
-      const elapsed = now - startRef.current;
+  // Request interpolation and start frame playback
+  const startTransition = useCallback(async (fromSrc, toSrc, toPrompt) => {
+    if (interpolatingRef.current) return;
+    interpolatingRef.current = true;
 
-      if (phase === 'morph') {
-        const p = Math.min(elapsed / duration, 1);
-        // Smooth ease-in-out
-        const eased = p < 0.5
-          ? 2 * p * p
-          : 1 - Math.pow(-2 * p + 2, 2) / 2;
-        setProgress(eased);
+    if (inferenceReady) {
+      try {
+        const result = await interpolate(fromSrc, toPrompt || 'future vision of Singapore', {
+          numFrames,
+          strengthStart,
+          strengthEnd,
+        });
 
-        if (p >= 1) {
-          setPhase('pause');
-          startRef.current = now;
+        if (result.frames && result.frames.length > 0) {
+          // Preload first frame, then start playback
+          await preloadImage(result.frames[0]).catch(() => {});
+          setTransitionFrames(result.frames);
+          interpolatingRef.current = false;
+          return;
         }
-      } else {
-        // Pause phase
-        if (elapsed >= pauseMs) {
-          advance();
-          return; // advance resets startRef
-        }
+      } catch (err) {
+        console.warn('Interpolation failed, falling back to direct swap:', err);
       }
+    }
 
-      rafRef.current = requestAnimationFrame(tick);
-    };
+    // Fallback: direct swap
+    setFrameSrc(toSrc);
+    interpolatingRef.current = false;
+  }, [inferenceReady, numFrames, strengthStart, strengthEnd, setTransitionFrames]);
 
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [phase, images.length, isIdle, idleDuration, visitorDuration, pauseBetween, advance]);
+  // Advance to next target on hold timer
+  const advance = useCallback(() => {
+    if (isTransitioning || interpolatingRef.current) return;
+
+    const total = images.length;
+    if (total < 2) return;
+
+    const nextIdx = (index + 1) % total;
+    const fromSrc = frameSrc;
+    const toSrc = images[nextIdx];
+
+    setIndex(nextIdx);
+    startTransition(fromSrc, toSrc);
+  }, [images, index, frameSrc, isTransitioning, startTransition]);
+
+  // Hold timer
+  useEffect(() => {
+    if (images.length < 2) return;
+
+    const holdMs = (isIdle ? idleHold : visitorHold) * 1000;
+    timerRef.current = setInterval(advance, holdMs);
+    return () => clearInterval(timerRef.current);
+  }, [images.length, isIdle, idleHold, visitorHold, advance]);
+
+  // Play transition frames
+  useEffect(() => {
+    if (!isTransitioning || transitionFrames.length === 0) return;
+
+    const frame = transitionFrames[transitionIndex];
+    if (frame) {
+      // Prefix with inference server URL if it's a relative /outputs/ path
+      const src = frame.startsWith('/outputs/')
+        ? `/inference${frame}`
+        : frame;
+      setFrameSrc(src);
+    }
+
+    if (transitionIndex < transitionFrames.length - 1) {
+      frameTimerRef.current = setTimeout(advanceTransitionFrame, frameInterval);
+    } else {
+      // Transition complete
+      frameTimerRef.current = setTimeout(completeTransition, frameInterval);
+    }
+
+    return () => clearTimeout(frameTimerRef.current);
+  }, [isTransitioning, transitionFrames, transitionIndex, frameInterval, advanceTransitionFrame, completeTransition]);
+
+  // Reset index when switching between idle / visitor mode
+  useEffect(() => {
+    setIndex(0);
+    completeTransition();
+  }, [isIdle, completeTransition]);
 
   // Auto-return to idle after visitor queue stalls
   useEffect(() => {
@@ -100,13 +158,10 @@ export function useVisionCycle(morphControls = {}) {
       idleTimerRef.current = setTimeout(() => {
         resetToIdle();
         setIndex(0);
-        setProgress(0);
-        setPhase('morph');
-        startRef.current = null;
       }, IDLE_TIMEOUT_MS);
     }
     return () => clearTimeout(idleTimerRef.current);
   }, [isIdle, visionQueue.length, resetToIdle]);
 
-  return { currentSrc, nextSrc, progress };
+  return { frameSrc, isTransitioning };
 }
